@@ -215,9 +215,9 @@ while True:
                 detect_item_position.insert(3, ymax)
             # Guide the "item" to the correct position    
             elif (object_name == detector_item_name and detect_item_position):
-              
+                
                 # Go Forward 
-                if (detect_item_position[0] < xcenter > detect_item_position[1] and detect_item_position[2] < ycenter > detect_item_position[3]):
+                if (xmin < detect_item_position[0] and xmax > detect_item_position[1] and ymin < detect_item_position[2] and ymax > detect_item_position[3]):
                     print('Go Forward')
                 # Go Right
                 elif (xcenter < detect_item_position[0]):
