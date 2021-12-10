@@ -206,7 +206,7 @@ while True:
             ycenter = ymin + (int(round((ymax - ymin) / 2)))
             cv2.circle(frame, (xcenter, ycenter), 5, (0,0,255), thickness=-1)
             
-             # Cache the item position to send out events where to move
+            # Cache the item position to send out events where to move
             if (object_name == detect_item_name):
                 # Cache the item 
                 detect_item_position.insert(0, xmin)
@@ -217,20 +217,20 @@ while True:
             elif (object_name == detector_item_name and detect_item_position):
               
                 # Go Forward 
-                if (detect_item_position[0] < xmin and xmax > detect_item_position[1] and detect_item_position[2] > ymin and detect_item_position[3] < ymax):
-                    print('go forward')
-                # Go UP || DOWN
-                elif (detect_item_position[0] < xcenter > detect_item_position[1]):
-                    if(detect_item_position[2] < xcenter or ymax < detect_item_position[3]):
-                        print('go up')
-                    else:
-                        print('go down')
-                # GO LEFT
+                if (detect_item_position[0] < xcenter > detect_item_position[1] and detect_item_position[2] < ycenter > detect_item_position[3]):
+                    print('Go Forward')
+                # Go Right
+                elif (xcenter < detect_item_position[0]):
+                    print('Go Right')
+                 # Go Left
                 elif (xcenter > detect_item_position[1]):
-                    print('go left')
-                # GO RIGHT
-                elif(xcenter < detect_item_position[1]):
-                    print('go RIGHT')
+                    print('Go Left')
+                # Go Up     
+                elif (ycenter < detect_item_position[2]):
+                    print('Go down')
+                # Go Down  
+                elif (ycenter > detect_item_position[3]):
+                    print('Go up')
             # Print info
             # print('Object ' + str(i) + ': ' + object_name + ' at (' + str(xcenter) + ', ' + str(ycenter) + ')')
 
