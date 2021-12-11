@@ -10,7 +10,7 @@ import importlib.util
 
 # BLE Client
 sys.path.insert(0, '../ble_client/')
-from STLB100_GATT_client import run_ble_client
+from STLB100_GATT_client import run_ble_client, run_haptic_feedback
 import sys
 import datetime
 import platform
@@ -157,11 +157,11 @@ time.sleep(1)
 # Create window
 cv2.namedWindow('Object detector', cv2.WINDOW_NORMAL)
     
-async def run_ble_consumer(queue: asyncio.Queue):
+async def run_ble_consumer(queue_dist: asyncio.Queue, queue_haptic: asyncio.Queue):
     #for frame1 in camera.capture_continuous(rawCapture, format="bgr",use_video_port=True):
     while True:
         # Use await asyncio.wait_for(queue.get(), timeout=1.0) if you want a timeout for getting data.
-        epoch, data = await queue.get()
+        epoch, data = await queue_dist.get()
         if data is None:
             print("BLE disconnecting! Exiting consumer loop...")
             break
@@ -234,21 +234,27 @@ async def run_ble_consumer(queue: asyncio.Queue):
                 # Guide the "item" to the correct position    
                 elif (object_name == detector_item_name and detect_item_position):
                     
+                    
                     # Go Forward 
                     if (xmin < detect_item_position[0] and xmax > detect_item_position[1] and ymin < detect_item_position[2] and ymax > detect_item_position[3]):
                         print('Go Forward')
+                        await queue_haptic.put(0)
                     # Go Right
                     elif (xcenter < detect_item_position[0]):
                         print('Go Right')
+                        await queue_haptic.put(4)
                      # Go Left
                     elif (xcenter > detect_item_position[1]):
                         print('Go Left')
+                        await queue_haptic.put(2)
                     # Go Up     
                     elif (ycenter < detect_item_position[2]):
                         print('Go down')
+                        await queue_haptic.put(3)
                     # Go Down  
                     elif (ycenter > detect_item_position[3]):
                         print('Go up')
+                        await queue_haptic.put(5)
                 # Print info
                 # print('Object ' + str(i) + ': ' + object_name + ' at (' + str(xcenter) + ', ' + str(ycenter) + ')')
 
@@ -277,10 +283,12 @@ async def main():
     device_ble_mac = os.getenv('DEVICE_BLE_MAC')
     os.system('sudo rm "/var/lib/bluetooth/{}/cache/C0:CC:BB:AA:AA:AA"'.format(device_ble_mac))
 
-    queue = asyncio.Queue()
+    queue_distance = asyncio.Queue()
+    queue_haptic = asyncio.Queue()
 
-    client_task = run_ble_client(queue)
-    consumer_task = run_ble_consumer(queue)
-    await asyncio.gather(client_task, consumer_task)
+    client_task = run_ble_client(queue_distance)
+    consumer_task = run_ble_consumer(queue_distance, queue_haptic)
+    haptic_task = run_haptic_feedback(queue_haptic)
+    await asyncio.gather(client_task, consumer_task, haptic_task)
    
 asyncio.run(main())
