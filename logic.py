@@ -8,11 +8,19 @@ import time
 from threading import Thread
 import importlib.util
 
+# BLE Client
+from ble_client.STLB100_GATT_client import run_ble_client, run_haptic_feedback
+import sys
+import datetime
+import platform
+import asyncio
+
 # Define VideoStream class to handle streaming of video from webcam in separate processing thread
 # Source - Adrian Rosebrock, PyImageSearch: https://www.pyimagesearch.com/2015/12/28/increasing-raspberry-pi-fps-with-python-and-opencv/
 class VideoStream:
     """Camera object that controls video streaming from the Picamera"""
     def __init__(self,resolution=(640,480),framerate=30):
+        print("video stream created")
         # Initialize the PiCamera and the camera image stream
         self.stream = cv2.VideoCapture(0)
         ret = self.stream.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
@@ -27,7 +35,8 @@ class VideoStream:
 
     def start(self):
 	# Start the thread that reads frames from the video stream
-        Thread(target=self.update,args=()).start()
+        #Thread(target=self.update,args=()).start()
+        self.update
         return self
 
     def update(self):
@@ -137,11 +146,11 @@ input_std = 127.5
 
 detector_item_name = "person"
 detect_item_name = "bottle"
-
 detect_item_position = []
 
-# Initialize frame rate calculation
-frame_rate_calc = 1
+detect_item_direction = []
+
+
 freq = cv2.getTickFrequency()
 
 # Initialize video stream
@@ -150,105 +159,134 @@ time.sleep(1)
 
 # Create window
 cv2.namedWindow('Object detector', cv2.WINDOW_NORMAL)
+    
+def run_ble_consumer():
+    print('Create BLE Consumer')
+    #for frame1 in camera.capture_continuous(rawCapture, format="bgr",use_video_port=True):
+    while True:
+        # Initialize frame rate calculation
+        frame_rate_calc = 1
+        
+        # Start timer (for calculating frame rate)
+        t1 = cv2.getTickCount()
 
-#for frame1 in camera.capture_continuous(rawCapture, format="bgr",use_video_port=True):
-while True:
+        # Grab frame from video stream
+        frame1 = videostream.read()
 
-    # Start timer (for calculating frame rate)
-    t1 = cv2.getTickCount()
+        # Acquire frame and resize to expected shape [1xHxWx3]
+        frame = frame1.copy()
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame_resized = cv2.resize(frame_rgb, (width, height))
+        input_data = np.expand_dims(frame_resized, axis=0)
 
-    # Grab frame from video stream
-    frame1 = videostream.read()
+        # Normalize pixel values if using a floating model (i.e. if model is non-quantized)
+        if floating_model:
+            input_data = (np.float32(input_data) - input_mean) / input_std
 
-    # Acquire frame and resize to expected shape [1xHxWx3]
-    frame = frame1.copy()
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    frame_resized = cv2.resize(frame_rgb, (width, height))
-    input_data = np.expand_dims(frame_resized, axis=0)
+        # Perform the actual detection by running the model with the image as input
+        interpreter.set_tensor(input_details[0]['index'],input_data)
+        interpreter.invoke()
 
-    # Normalize pixel values if using a floating model (i.e. if model is non-quantized)
-    if floating_model:
-        input_data = (np.float32(input_data) - input_mean) / input_std
+        # Retrieve detection results
+        boxes = interpreter.get_tensor(output_details[0]['index'])[0] # Bounding box coordinates of detected objects
+        classes = interpreter.get_tensor(output_details[1]['index'])[0] # Class index of detected objects
+        scores = interpreter.get_tensor(output_details[2]['index'])[0] # Confidence of detected objects
+        #num = interpreter.get_tensor(output_details[3]['index'])[0]  # Total number of detected objects (inaccurate and not needed)
+        # Loop over all detections and draw detection box if confidence is above minimum threshold
+        for i in range(len(scores)):
+            if ((scores[i] > min_conf_threshold) and (scores[i] <= 1.0) and (labels[int(classes[i])] == detector_item_name or labels[int(classes[i])] == detect_item_name )):
 
-    # Perform the actual detection by running the model with the image as input
-    interpreter.set_tensor(input_details[0]['index'],input_data)
-    interpreter.invoke()
-
-    # Retrieve detection results
-    boxes = interpreter.get_tensor(output_details[0]['index'])[0] # Bounding box coordinates of detected objects
-    classes = interpreter.get_tensor(output_details[1]['index'])[0] # Class index of detected objects
-    scores = interpreter.get_tensor(output_details[2]['index'])[0] # Confidence of detected objects
-    #num = interpreter.get_tensor(output_details[3]['index'])[0]  # Total number of detected objects (inaccurate and not needed)
-
-    # Loop over all detections and draw detection box if confidence is above minimum threshold
-    for i in range(len(scores)):
-        if ((scores[i] > min_conf_threshold) and (scores[i] <= 1.0) and (labels[int(classes[i])] == detector_item_name or labels[int(classes[i])] == detect_item_name )):
-
-            # Get bounding box coordinates and draw box
-            # Interpreter can return coordinates that are outside of image dimensions, need to force them to be within image using max() and min()
-            ymin = int(max(1,(boxes[i][0] * imH)))
-            xmin = int(max(1,(boxes[i][1] * imW)))
-            ymax = int(min(imH,(boxes[i][2] * imH)))
-            xmax = int(min(imW,(boxes[i][3] * imW)))
-            
-            cv2.rectangle(frame, (xmin,ymin), (xmax,ymax), (10, 255, 0), 2)
-            
-            # Draw label
-            object_name = labels[int(classes[i])] # Look up object name from "labels" array using class index
-            label = '%s: %d%%' % (object_name, int(scores[i]*100)) # Example: 'person: 72%'?
-            labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2) # Get font size
-            label_ymin = max(ymin, labelSize[1] + 10) # Make sure not to draw label too close to top of window
-            cv2.rectangle(frame, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED) # Draw white box to put label text in
-            cv2.putText(frame, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2) # Draw label text
-
-            # Draw circle in center
-            xcenter = xmin + (int(round((xmax - xmin) / 2)))
-            ycenter = ymin + (int(round((ymax - ymin) / 2)))
-            cv2.circle(frame, (xcenter, ycenter), 5, (0,0,255), thickness=-1)
-            
-            # Cache the item position to send out events where to move
-            if (object_name == detect_item_name):
-                # Cache the item 
-                detect_item_position.insert(0, xmin)
-                detect_item_position.insert(1, xmax)
-                detect_item_position.insert(2, ymin)
-                detect_item_position.insert(3, ymax)
-            # Guide the "item" to the correct position    
-            elif (object_name == detector_item_name and detect_item_position):
+                # Get bounding box coordinates and draw box
+                # Interpreter can return coordinates that are outside of image dimensions, need to force them to be within image using max() and min()
+                ymin = int(max(1,(boxes[i][0] * imH)))
+                xmin = int(max(1,(boxes[i][1] * imW)))
+                ymax = int(min(imH,(boxes[i][2] * imH)))
+                xmax = int(min(imW,(boxes[i][3] * imW)))
                 
-                # Go Forward 
-                if (xmin < detect_item_position[0] and xmax > detect_item_position[1] and ymin < detect_item_position[2] and ymax > detect_item_position[3]):
-                    print('Go Forward')
-                # Go Right
-                elif (xcenter < detect_item_position[0]):
-                    print('Go Right')
-                 # Go Left
-                elif (xcenter > detect_item_position[1]):
-                    print('Go Left')
-                # Go Up     
-                elif (ycenter < detect_item_position[2]):
-                    print('Go down')
-                # Go Down  
-                elif (ycenter > detect_item_position[3]):
-                    print('Go up')
-            # Print info
-            # print('Object ' + str(i) + ': ' + object_name + ' at (' + str(xcenter) + ', ' + str(ycenter) + ')')
+                cv2.rectangle(frame, (xmin,ymin), (xmax,ymax), (10, 255, 0), 2)
+                
+                # Draw label
+                object_name = labels[int(classes[i])] # Look up object name from "labels" array using class index
+                label = '%s: %d%%' % (object_name, int(scores[i]*100)) # Example: 'person: 72%'?
+                labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2) # Get font size
+                label_ymin = max(ymin, labelSize[1] + 10) # Make sure not to draw label too close to top of window
+                cv2.rectangle(frame, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED) # Draw white box to put label text in
+                cv2.putText(frame, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2) # Draw label text
 
-    # Draw framerate in corner of frame
-    cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)
+                # Draw circle in center
+                xcenter = xmin + (int(round((xmax - xmin) / 2)))
+                ycenter = ymin + (int(round((ymax - ymin) / 2)))
+                cv2.circle(frame, (xcenter, ycenter), 5, (0,0,255), thickness=-1)
+                
+                # Cache the item position to send out events where to move
+                if (object_name == detect_item_name):
+                    # Cache the item 
+                    detect_item_position.insert(0, xmin)
+                    detect_item_position.insert(1, xmax)
+                    detect_item_position.insert(2, ymin)
+                    detect_item_position.insert(3, ymax)
+                # Guide the "item" to the correct position    
+                elif (object_name == detector_item_name and detect_item_position):
+                    
+                    
+                    # Go Forward 
+                    if (xmin < detect_item_position[0] and xmax > detect_item_position[1] and ymin < detect_item_position[2] and ymax > detect_item_position[3]):
+                        print('Go Forward')
+                        #queue_haptic.put(0)
+                        detect_item_direction.append(0)
+                    # Go Right
+                    elif (xcenter < detect_item_position[0]):
+                        print('Go Right')
+                        #queue_haptic.put(4)
+                        detect_item_direction.append(4)
+                     # Go Left
+                    elif (xcenter > detect_item_position[1]):
+                        print('Go Left')
+                        #queue_haptic.put(2)
+                        detect_item_direction.append(2)
+                    # Go Up     
+                    elif (ycenter < detect_item_position[2]):
+                        print('Go down')
+                        #queue_haptic.put(3)
+                        detect_item_direction.append(3)
+                    # Go Down  
+                    elif (ycenter > detect_item_position[3]):
+                        print('Go up')
+                        #queue_haptic.put(5)
+                        detect_item_direction.append(5)
+                # Print info
+                # print('Object ' + str(i) + ': ' + object_name + ' at (' + str(xcenter) + ', ' + str(ycenter) + ')')
+                
+        # All the results have been drawn on the frame, so it's time to display it.
+        cv2.imshow('Object detector', frame)
+        # Calculate framerate
+        t2 = cv2.getTickCount()
+        time1 = (t2-t1)/freq
+        frame_rate_calc= 1/time1
+        # Press 'q' to quit
+        if cv2.waitKey(1) == ord('q'):
+            break
 
-    # All the results have been drawn on the frame, so it's time to display it.
-    cv2.imshow('Object detector', frame)
+    # Clean up
+    cv2.destroyAllWindows()
+    videostream.stop()
+    
+def send_feedback():
+    print('Start feedback')
+    while True:
+        if detect_item_direction:
+            position = detect_item_direction.pop(0)
+            print('Ga naar', position, ' de lijst is ', len(detect_item_direction))
+        #time.sleep(1)
 
-    # Calculate framerate
-    t2 = cv2.getTickCount()
-    time1 = (t2-t1)/freq
-    frame_rate_calc= 1/time1
+def main():
 
-    # Press 'q' to quit
-    if cv2.waitKey(1) == ord('q'):
-        break
+    os.system('bluetoothctl -- remove C0:CC:BB:AA:AA:AA')
+    device_ble_mac = os.getenv('DEVICE_BLE_MAC')
+    os.system('sudo rm "/var/lib/bluetooth/{}/cache/C0:CC:BB:AA:AA:AA"'.format(device_ble_mac))
 
-# Clean up
-cv2.destroyAllWindows()
-videostream.stop()
+    Thread(target=videostream.update,args=()).start()
+    Thread(target= send_feedback ,args=()).start()
+    run_ble_consumer()
+   
+main()
