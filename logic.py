@@ -276,7 +276,7 @@ def send_feedback():
     while True:
         if detect_item_direction:
             position = detect_item_direction.pop(0)
-            print('Ga naar', position, ' de lijst is ', len(detect_item_direction))
+            print('Move: position', position, ' the queue is: ', len(detect_item_direction), ' directions ')
         #time.sleep(1)
 
 def main():
