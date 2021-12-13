@@ -5,11 +5,12 @@ import cv2
 import numpy as np
 import sys
 import time
-from threading import Thread
+import threading
 import importlib.util
+from collections import deque
 
 # BLE Client
-from ble_client.STLB100_GATT_client import run_ble_client, run_haptic_feedback
+from ble_client.STLB100_GATT_client import start_ble_client, write_haptic_feedback
 import sys
 import datetime
 import platform
@@ -148,8 +149,7 @@ detector_item_name = "person"
 detect_item_name = "bottle"
 detect_item_position = []
 
-detect_item_direction = []
-
+feedback_queue = deque(maxlen=3)
 
 freq = cv2.getTickFrequency()
 
@@ -160,8 +160,8 @@ time.sleep(1)
 # Create window
 cv2.namedWindow('Object detector', cv2.WINDOW_NORMAL)
     
-def run_ble_consumer():
-    print('Create BLE Consumer')
+def run_feedback_producer():
+    print('Create Feedback Producer')
     #for frame1 in camera.capture_continuous(rawCapture, format="bgr",use_video_port=True):
     while True:
         # Initialize frame rate calculation
@@ -228,32 +228,33 @@ def run_ble_consumer():
                 # Guide the "item" to the correct position    
                 elif (object_name == detector_item_name and detect_item_position):
                     
-                    
                     # Go Forward 
                     if (xmin < detect_item_position[0] and xmax > detect_item_position[1] and ymin < detect_item_position[2] and ymax > detect_item_position[3]):
                         print('Go Forward')
                         #queue_haptic.put(0)
-                        detect_item_direction.append(0)
+                        feedback_queue.append(0)
+                        #send_feedback(_loop)
                     # Go Right
                     elif (xcenter < detect_item_position[0]):
                         print('Go Right')
                         #queue_haptic.put(4)
-                        detect_item_direction.append(4)
+                        feedback_queue.append(4)
+                        #send_feedback(_loop)
                      # Go Left
                     elif (xcenter > detect_item_position[1]):
                         print('Go Left')
                         #queue_haptic.put(2)
-                        detect_item_direction.append(2)
+                        feedback_queue.append(2)
                     # Go Up     
                     elif (ycenter < detect_item_position[2]):
                         print('Go down')
                         #queue_haptic.put(3)
-                        detect_item_direction.append(3)
+                        feedback_queue.append(3)
                     # Go Down  
                     elif (ycenter > detect_item_position[3]):
                         print('Go up')
                         #queue_haptic.put(5)
-                        detect_item_direction.append(5)
+                        feedback_queue.append(5)
                 # Print info
                 # print('Object ' + str(i) + ': ' + object_name + ' at (' + str(xcenter) + ', ' + str(ycenter) + ')')
                 
@@ -271,22 +272,39 @@ def run_ble_consumer():
     cv2.destroyAllWindows()
     videostream.stop()
     
-def send_feedback():
-    print('Start feedback')
-    while True:
-        if detect_item_direction:
-            position = detect_item_direction.pop(0)
-            print('Move: position', position, ' the queue is: ', len(detect_item_direction), ' directions ')
-        #time.sleep(1)
+def send_feedback(loop):
+    return asyncio.run_coroutine_threadsafe(run_haptic_feedback(), loop)
 
-def main():
+async def run_haptic_feedback():
+    while True:
+        if(feedback_queue):
+            direction = feedback_queue.pop()
+            print(f'Send feedback direction: {direction}')
+            await write_haptic_feedback(direction)
+        else:
+            print('No direcions to send', feedback_queue)
+            await asyncio.sleep(1)
+
+def _start_async():
+    loop = asyncio.new_event_loop()
+    t = threading.Thread(target=loop.run_forever)
+    t.daemon = True
+    t.start()
+    return loop
+    
+_loop = _start_async()
+
+async def main():
 
     os.system('bluetoothctl -- remove C0:CC:BB:AA:AA:AA')
     device_ble_mac = os.getenv('DEVICE_BLE_MAC')
     os.system('sudo rm "/var/lib/bluetooth/{}/cache/C0:CC:BB:AA:AA:AA"'.format(device_ble_mac))
+    
+    await start_ble_client()
 
-    Thread(target=videostream.update,args=()).start()
-    Thread(target= send_feedback ,args=()).start()
-    run_ble_consumer()
+    threading.Thread(target=videostream.update,args=()).start()
+    
+    send_feedback(_loop)
+    run_feedback_producer()
    
-main()
+asyncio.run(main())
