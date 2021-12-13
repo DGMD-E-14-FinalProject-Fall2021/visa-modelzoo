@@ -172,10 +172,12 @@ def start_object_detection():
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame_resized = cv2.resize(frame_rgb, (width, height))
         input_data = np.expand_dims(frame_resized, axis=0)
+	
+	np.expand_dims
 
         # Normalize pixel values if using a floating model (i.e. if model is non-quantized)
         if floating_model:
-            input_data = (np.float32(input_data) - input_mean) / input_std
+             input_data = (np.float32(input_data) - input_mean) / input_std
 
         # Perform the actual detection by running the model with the image as input
         interpreter.set_tensor(input_details[0]['index'],input_data)
