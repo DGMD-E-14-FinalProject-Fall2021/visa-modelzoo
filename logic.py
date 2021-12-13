@@ -311,7 +311,7 @@ async def main():
     connection = Connection(_loop)
     
     submit_async(connection.manager())
-    submit_async(run_haptic_feedback())
+    submit_async(run_haptic_feedback(connection))
     
     start_object_detection()
    
