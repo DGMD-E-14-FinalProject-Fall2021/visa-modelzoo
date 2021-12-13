@@ -23,7 +23,6 @@ class Connection:
        
     def on_disconnect(self, client: BleakClient, future: asyncio.Future):
         self.connected = False
-        # Put code here to handle what happens on disconnet.
         print(f"Disconnected from {devices_list}!")
 
     async def cleanup(self):
@@ -58,13 +57,11 @@ class Connection:
             print(e)
 
     async def scan(self):
-        print('scan: before discover')
+        print('scanning...')
         dev = await discover()
-        print('scan: after discover') 
         for i in range(0,len(dev)):
             if dev[i].name == "STLB250":
             #Print the devices discovered
-            #TODO write to the log file
                 print("[" + str(i) + "]" + dev[i].address,dev[i].name,dev[i].metadata["uuids"])
                 devices_dict[dev[i].address] = []
                 devices_dict[dev[i].address].append(dev[i].name)
