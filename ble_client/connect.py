@@ -24,7 +24,7 @@ class Connection:
     def on_disconnect(self, client: BleakClient, future: asyncio.Future):
         self.connected = False
         # Put code here to handle what happens on disconnet.
-        print(f"Disconnected from {self.connected_device.name}!")
+        print(f"Disconnected from {devices_list}!")
 
     async def cleanup(self):
         if self.client:
@@ -36,7 +36,7 @@ class Connection:
             if self.client:
                 await self.connect()
             else:
-                await self.select_device()
+                await self.scan()
                 await asyncio.sleep(10.0)       
 
     async def connect(self):
@@ -46,14 +46,14 @@ class Connection:
             await self.client.connect()
             self.connected = await self.client.is_connected()
             if self.connected:
-                print(F"Connected to {self.connected_device.name}")
+                print(F"Connected to {devices_list}")
                 self.client.set_disconnected_callback(self.on_disconnect)
                 while True:
                     if not self.connected:
                         break
                     await asyncio.sleep(3.0)
             else:
-                print(f"Failed to connect to {self.connected_device.name}")
+                print(f"Failed to connect to {devices_list}")
         except Exception as e:
             print(e)
 
