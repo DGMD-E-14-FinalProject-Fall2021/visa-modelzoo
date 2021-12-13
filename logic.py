@@ -10,7 +10,7 @@ import importlib.util
 from collections import deque
 
 # BLE Client
-from ble_client import Connection
+from ble_client.connect import Connection
 import sys
 import datetime
 import platform
