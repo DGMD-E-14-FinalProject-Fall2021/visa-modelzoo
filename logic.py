@@ -234,32 +234,23 @@ def start_object_detection():
                     # Go Forward 
                     if (xmin < detect_item_position[0] and xmax > detect_item_position[1] and ymin < detect_item_position[2] and ymax > detect_item_position[3]):
                         print('Go Forward')
-                        #queue_haptic.put(0)
-                        feedback_queue.append(0)
-                        #send_feedback(_loop)
+                        feedback_queue.append(5)
                     # Go Right
                     elif (xcenter < detect_item_position[0]):
                         print('Go Right')
-                        #queue_haptic.put(4)
-                        feedback_queue.append(4)
-                        #send_feedback(_loop)
+                        feedback_queue.append(1)
                      # Go Left
                     elif (xcenter > detect_item_position[1]):
                         print('Go Left')
-                        #queue_haptic.put(2)
                         feedback_queue.append(2)
                     # Go Up     
                     elif (ycenter < detect_item_position[2]):
-                        print('Go down')
-                        #queue_haptic.put(3)
+                        print('Go Up')
                         feedback_queue.append(3)
                     # Go Down  
                     elif (ycenter > detect_item_position[3]):
-                        print('Go up')
-                        #queue_haptic.put(5)
-                        feedback_queue.append(5)
-                # Print info
-                # print('Object ' + str(i) + ': ' + object_name + ' at (' + str(xcenter) + ', ' + str(ycenter) + ')')
+                        print('Go Down')
+                        feedback_queue.append(4)
         # Draw framerate in corner of frame
         cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)        
         # All the results have been drawn on the frame, so it's time to display it.
@@ -290,10 +281,10 @@ def submit_async(awaitable):
 
 async def run_haptic_feedback(connection: Connection):
     while True:
+        #print(f'run haptic feedback connection: {connection} is connected {connection.connected}' )
         if(connection.client and connection.connected and feedback_queue):
             direction = feedback_queue.pop()
             feedback = bytes([direction])
-            print(f'writing haptic feedback: {feedback}' )
             await connection.client.write_gatt_char(HAPTIC_CHAR_UUID, feedback)
         else:
             print('No direcions to send', feedback_queue)
