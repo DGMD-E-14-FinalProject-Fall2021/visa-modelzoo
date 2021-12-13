@@ -24,7 +24,9 @@ devices_list = []
 receive_data = []
 
 async def scan():
+    print('scan: before discover')
     dev = await discover()
+    print('scan: after discover') 
     for i in range(0,len(dev)):
         if dev[i].name == "STLB250":
            #Print the devices discovered
@@ -52,14 +54,14 @@ async def start_ble_client():
 
     async with BleakClient(address, disconnected_callback = disconnected_callback) as client:
         try:
-
+            print('Before scan')
             await scan()
+            print('After scan')
 
             x = await client.is_connected()
-            log.info("Connected: {0}".format(x))
+            print(f'Connected: {x}')
 
             for service in client.services:
-                log.info("[Service] {0}: {1}".format(service.uuid, service.description))
                 for char in service.characteristics:
                     if "read" in char.properties:
                         try:
@@ -68,28 +70,19 @@ async def start_ble_client():
                             value = str(e).encode()
                     else:
                         value = None
-                        log.info(
-                            "\t[Characteristic] {0}: (Handle: {1}) ({2}) | Name: {3}, Value: {4} ".format(
-                                char.uuid,
-                                char.handle,
-                                ",".join(char.properties),
-                                char.description,
-                                value,
-                        )
-                    )
+                    
                     for descriptor in char.descriptors:
                         value = await client.read_gatt_descriptor(descriptor.handle)
-                        log.info(
-                            "\t\t[Descriptor] {0}: (Handle: {1}) | Value: {2} ".format(
-                                descriptor.uuid, descriptor.handle, bytes(value)
-                            )
-                        )
-
+                        
+            print('after service')
             # Turn on haptic sensor with value 0x01 (Move hand right)
-            await client.write_gatt_char(HAPTIC_CHAR_UUID, b'\x01', response=True)
+            await client.write_gatt_char(HAPTIC_CHAR_UUID, b'\x01')
+            print('after send right startup')
             await asyncio.sleep(3.0)
+            print('after sleep')
             # Turn off haptic sensor with a value of 0x00
-            await client.write_gatt_char(HAPTIC_CHAR_UUID, b'\x00', response=True)
+            await client.write_gatt_char(HAPTIC_CHAR_UUID, b'\x00')
+            print('after turning of sensor')   
 
         except Exception as e:
              await disconnected_event.wait()
