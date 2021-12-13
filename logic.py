@@ -10,11 +10,14 @@ import importlib.util
 from collections import deque
 
 # BLE Client
-from ble_client.STLB100_GATT_client import start_ble_client, write_haptic_feedback
+from ble_client import Connection
 import sys
 import datetime
 import platform
 import asyncio
+
+# Haptic characteristic uuid
+HAPTIC_CHAR_UUID = "20000000-0001-11e1-ac36-0002a5d5c51b"
 
 # Define VideoStream class to handle streaming of video from webcam in separate processing thread
 # Source - Adrian Rosebrock, PyImageSearch: https://www.pyimagesearch.com/2015/12/28/increasing-raspberry-pi-fps-with-python-and-opencv/
@@ -160,7 +163,7 @@ time.sleep(1)
 # Create window
 cv2.namedWindow('Object detector', cv2.WINDOW_NORMAL)
     
-def run_feedback_producer():
+def start_object_detection():
     print('Create Feedback Producer')
     #for frame1 in camera.capture_continuous(rawCapture, format="bgr",use_video_port=True):
     while True:
@@ -257,7 +260,8 @@ def run_feedback_producer():
                         feedback_queue.append(5)
                 # Print info
                 # print('Object ' + str(i) + ': ' + object_name + ' at (' + str(xcenter) + ', ' + str(ycenter) + ')')
-                
+        # Draw framerate in corner of frame
+        cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)        
         # All the results have been drawn on the frame, so it's time to display it.
         cv2.imshow('Object detector', frame)
         # Calculate framerate
@@ -272,19 +276,6 @@ def run_feedback_producer():
     cv2.destroyAllWindows()
     videostream.stop()
     
-def send_feedback(loop):
-    return asyncio.run_coroutine_threadsafe(run_haptic_feedback(), loop)
-
-async def run_haptic_feedback():
-    while True:
-        if(feedback_queue):
-            direction = feedback_queue.pop()
-            print(f'Send feedback direction: {direction}')
-            await write_haptic_feedback(direction)
-        else:
-            print('No direcions to send', feedback_queue)
-            await asyncio.sleep(1)
-
 def _start_async():
     loop = asyncio.new_event_loop()
     t = threading.Thread(target=loop.run_forever)
@@ -294,17 +285,34 @@ def _start_async():
     
 _loop = _start_async()
 
+def submit_async(awaitable):
+    return asyncio.run_coroutine_threadsafe(awaitable, _loop)
+
+async def run_haptic_feedback(connection: Connection):
+    while True:
+        if(connection.client and connection.connected and feedback_queue):
+            direction = feedback_queue.pop()
+            feedback = bytes([direction])
+            print(f'writing haptic feedback: {feedback}' )
+            await connection.client.write_gatt_char(HAPTIC_CHAR_UUID, feedback)
+        else:
+            print('No direcions to send', feedback_queue)
+            await asyncio.sleep(1)
+
+
 async def main():
 
     os.system('bluetoothctl -- remove C0:CC:BB:AA:AA:AA')
     device_ble_mac = os.getenv('DEVICE_BLE_MAC')
     os.system('sudo rm "/var/lib/bluetooth/{}/cache/C0:CC:BB:AA:AA:AA"'.format(device_ble_mac))
     
-    await start_ble_client()
-
     threading.Thread(target=videostream.update,args=()).start()
     
-    send_feedback(_loop)
-    run_feedback_producer()
+    connection = Connection(_loop)
+    
+    submit_async(connection.manager())
+    submit_async(run_haptic_feedback())
+    
+    start_object_detection()
    
 asyncio.run(main())
