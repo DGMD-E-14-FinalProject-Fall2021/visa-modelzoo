@@ -36,7 +36,7 @@ class Connection:
                 await self.connect()
             else:
                 await self.scan()
-                await asyncio.sleep(10.0)       
+                await asyncio.sleep(2.0)       
 
     async def connect(self):
         if self.connected:
