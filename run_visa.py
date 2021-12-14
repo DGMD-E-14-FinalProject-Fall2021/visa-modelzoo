@@ -137,8 +137,8 @@ width = input_details[0]['shape'][2]
 
 floating_model = (input_details[0]['dtype'] == np.float32)
 
-input_mean = 127.5
-input_std = 127.5
+input_mean = 128
+input_std = 128
 
 detector_item_name = "hand"
 detect_item_name = "apple"
@@ -173,8 +173,6 @@ def start_object_detection():
         frame_resized = cv2.resize(frame_rgb, (width, height))
         input_data = np.expand_dims(frame_resized, axis=0)
 	
-	np.expand_dims
-
         # Normalize pixel values if using a floating model (i.e. if model is non-quantized)
         if floating_model:
              input_data = (np.float32(input_data) - input_mean) / input_std
