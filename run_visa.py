@@ -3,9 +3,7 @@ import os
 import argparse
 import cv2
 import numpy as np
-import sys
-import time
-import threading
+from threading import Thread
 import importlib.util
 from collections import deque
 
@@ -38,7 +36,7 @@ class VideoStream:
         self.stopped = False
 
     def start(self):
-        self.update
+        Thread(target=self.update,args=()).start()
         return self
 
     def update(self):
@@ -54,11 +52,11 @@ class VideoStream:
             (self.grabbed, self.frame) = self.stream.read()
 
     def read(self):
-	      # Return the most recent frame
+	# Return the most recent frame
         return self.frame
 
     def stop(self):
-	      # Indicate that the camera and thread should be stopped
+	# Indicate that the camera and thread should be stopped
         self.stopped = True
 
 # Define and parse input arguments
@@ -146,23 +144,23 @@ detect_item_position = []
 
 feedback_queue = deque(maxlen=3)
 
+# Initialize frame rate calculation
+frame_rate_calc = 1
 freq = cv2.getTickFrequency()
 
 # Initialize video stream
 videostream = VideoStream(resolution=(imW,imH),framerate=30)
-time.sleep(1)
 
 # Create window
 cv2.namedWindow('Object detector', cv2.WINDOW_NORMAL)
     
 def start_object_detection():
+    print('Starting object detection')
     #for frame1 in camera.capture_continuous(rawCapture, format="bgr",use_video_port=True):
     while True:
-        # Initialize frame rate calculation
-        frame_rate_calc = 1
-        
-        # Start timer (for calculating frame rate)
-        t1 = cv2.getTickCount()
+
+	    # Start timer (for calculating frame rate)
+    	t1 = cv2.getTickCount()
 
         # Grab frame from video stream
         frame1 = videostream.read()
@@ -242,16 +240,21 @@ def start_object_detection():
                     elif (ycenter > detect_item_position[3]):
                         print('Go Down')
                         feedback_queue.append(4)
+			
         # Draw framerate in corner of frame
-        cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)        
+        cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)
+
         # All the results have been drawn on the frame, so it's time to display it.
         cv2.imshow('Object detector', frame)
+
         # Calculate framerate
         t2 = cv2.getTickCount()
         time1 = (t2-t1)/freq
         frame_rate_calc= 1/time1
-        # Press 'q' to quit
+        
+            # Press 'q' to quit
         if cv2.waitKey(1) == ord('q'):
+            print('Stopping object detection')
             break
 
     # Clean up
@@ -260,7 +263,7 @@ def start_object_detection():
     
 def _start_async():
     loop = asyncio.new_event_loop()
-    t = threading.Thread(target=loop.run_forever)
+    t = Thread(target=loop.run_forever)
     t.daemon = True
     t.start()
     return loop
@@ -278,7 +281,6 @@ async def run_haptic_feedback(connection: Connection):
             feedback = bytes([direction])
             await connection.client.write_gatt_char(HAPTIC_CHAR_UUID, feedback)
         else:
-            print('No direcions to send', feedback_queue)
             await asyncio.sleep(1)
 
 
@@ -288,7 +290,7 @@ async def main():
     device_ble_mac = os.getenv('DEVICE_BLE_MAC')
     os.system('sudo rm "/var/lib/bluetooth/{}/cache/C0:CC:BB:AA:AA:AA"'.format(device_ble_mac))
     
-    threading.Thread(target=videostream.update,args=()).start()
+    videostream.start()
     
     connection = Connection(_loop)
     
