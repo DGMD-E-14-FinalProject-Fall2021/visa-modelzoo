@@ -237,11 +237,11 @@ def start_object_detection():
                     # Go Up     
                     elif (ycenter < detect_item_position[2]):
                         print('Go Up')
-                        feedback_queue.append(4)
+                        feedback_queue.append(3)
                     # Go Down  
                     elif (ycenter > detect_item_position[3]):
                         print('Go Down')
-                        feedback_queue.append(3)
+                        feedback_queue.append(4)
         # Draw framerate in corner of frame
         cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)        
         # All the results have been drawn on the frame, so it's time to display it.
