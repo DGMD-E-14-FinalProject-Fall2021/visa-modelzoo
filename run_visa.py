@@ -1,18 +1,15 @@
-# Import packages
 import os
 import argparse
 import cv2
 import numpy as np
-from threading import Thread
 import importlib.util
-from collections import deque
+import asyncio
 
+from threading import Thread
+from collections import deque
 # BLE Client
 from ble_client.connect import Connection
-import sys
-import datetime
-import platform
-import asyncio
+
 
 # Haptic characteristic uuid
 HAPTIC_CHAR_UUID = "20000000-0001-11e1-ac36-0002a5d5c51b"
@@ -31,11 +28,11 @@ class VideoStream:
         # Read first frame from the stream
         (self.grabbed, self.frame) = self.stream.read()
 
-	# Variable to control when the camera is stopped
+	    # Variable to control when the camera is stopped
         self.stopped = False
 
     def start(self):
-	# Start the thread that reads frames from the video stream
+	    # Start the thread that reads frames from the video stream
         Thread(target=self.update,args=()).start()
         return self
 
@@ -52,11 +49,11 @@ class VideoStream:
             (self.grabbed, self.frame) = self.stream.read()
 
     def read(self):
-	# Return the most recent frame
+	    # Return the most recent frame
         return self.frame
 
     def stop(self):
-	# Indicate that the camera and thread should be stopped
+	    # Indicate that the camera and thread should be stopped
         self.stopped = True
 
 # Define and parse input arguments
@@ -144,10 +141,6 @@ detect_item_position = []
 
 feedback_queue = deque(maxlen=3)
 
-# Initialize frame rate calculation
-frame_rate_calc = 1
-freq = cv2.getTickFrequency()
-
 # Initialize video stream
 videostream = VideoStream(resolution=(imW,imH),framerate=30)
 
@@ -155,6 +148,10 @@ videostream = VideoStream(resolution=(imW,imH),framerate=30)
 cv2.namedWindow('Object detector', cv2.WINDOW_NORMAL)
     
 def start_object_detection():
+    # Initialize frame rate calculation
+    frame_rate_calc = 1
+    freq = cv2.getTickFrequency()
+    
     print('Starting object detection')
     
     while True:
@@ -248,7 +245,7 @@ def start_object_detection():
         # Calculate framerate
         t2 = cv2.getTickCount()
         time1 = (t2-t1)/freq
-        frame_rate_calc= 1/time1
+        frame_rate_calc = 1/time1
         
             # Press 'q' to quit
         if cv2.waitKey(1) == ord('q'):
