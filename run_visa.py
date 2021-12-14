@@ -137,8 +137,8 @@ width = input_details[0]['shape'][2]
 
 floating_model = (input_details[0]['dtype'] == np.float32)
 
-input_mean = 128
-input_std = 128
+input_mean = 127.5
+input_std = 127.5
 
 detector_item_name = "hand"
 detect_item_name = "apple"
