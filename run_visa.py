@@ -22,7 +22,6 @@ HAPTIC_CHAR_UUID = "20000000-0001-11e1-ac36-0002a5d5c51b"
 class VideoStream:
     """Camera object that controls video streaming from the Picamera"""
     def __init__(self,resolution=(640,480),framerate=30):
-        print("video stream created")
         # Initialize the PiCamera and the camera image stream
         self.stream = cv2.VideoCapture(0)
         ret = self.stream.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
@@ -32,10 +31,11 @@ class VideoStream:
         # Read first frame from the stream
         (self.grabbed, self.frame) = self.stream.read()
 
-	      # Variable to control when the camera is stopped
+	# Variable to control when the camera is stopped
         self.stopped = False
 
     def start(self):
+	# Start the thread that reads frames from the video stream
         Thread(target=self.update,args=()).start()
         return self
 
@@ -156,12 +156,10 @@ cv2.namedWindow('Object detector', cv2.WINDOW_NORMAL)
     
 def start_object_detection():
     print('Starting object detection')
-    #for frame1 in camera.capture_continuous(rawCapture, format="bgr",use_video_port=True):
+    
     while True:
-
-	    # Start timer (for calculating frame rate)
-    	t1 = cv2.getTickCount()
-
+        # Start timer (for calculating frame rate)
+        t1 = cv2.getTickCount()
         # Grab frame from video stream
         frame1 = videostream.read()
 
@@ -170,10 +168,10 @@ def start_object_detection():
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame_resized = cv2.resize(frame_rgb, (width, height))
         input_data = np.expand_dims(frame_resized, axis=0)
-	
+
         # Normalize pixel values if using a floating model (i.e. if model is non-quantized)
         if floating_model:
-             input_data = (np.float32(input_data) - input_mean) / input_std
+            input_data = (np.float32(input_data) - input_mean) / input_std
 
         # Perform the actual detection by running the model with the image as input
         interpreter.set_tensor(input_details[0]['index'],input_data)
@@ -183,7 +181,7 @@ def start_object_detection():
         boxes = interpreter.get_tensor(output_details[0]['index'])[0] # Bounding box coordinates of detected objects
         classes = interpreter.get_tensor(output_details[1]['index'])[0] # Class index of detected objects
         scores = interpreter.get_tensor(output_details[2]['index'])[0] # Confidence of detected objects
-       
+
         # Loop over all detections and draw detection box if confidence is above minimum threshold
         for i in range(len(scores)):
             if ((scores[i] > min_conf_threshold) and (scores[i] <= 1.0) and (labels[int(classes[i])] == detector_item_name or labels[int(classes[i])] == detect_item_name )):
