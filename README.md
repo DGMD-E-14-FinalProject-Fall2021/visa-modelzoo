@@ -1,4 +1,4 @@
-# MobileNet Setup
+# VISA Setup
 
 Basic setup
 
