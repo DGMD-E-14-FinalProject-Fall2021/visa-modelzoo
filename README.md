@@ -51,7 +51,7 @@ python -m pip install <paste in .whl link>
 
 Step 9: Run the webcam object detection script
 ```
-python detect.py --modeldir '{path}/mobilenet'
+python detect.py --modeldir '{path}/visa-snapshot'
 ```
 
 * Based on:
