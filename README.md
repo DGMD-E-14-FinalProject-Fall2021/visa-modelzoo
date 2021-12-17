@@ -31,20 +31,25 @@ Step 5: install openCV (if you have issues opencv-python==3.4.11.41 )
 python -m pip install opencv-contrib-python==4.1.0.25
 ```
 
-Step 6: Check out your processor and python version:
+Step 6: Install bluez:
+```
+pip install bleak
+```
+
+Step 7: Check out your processor and python version:
 ```
 uname -m
 python --version
 ```
 
-step 6: Install TF
+step 8: Install TF
 Open an Internet browser on your Pi and head to https://github.com/google-coral/pycoral/releases/. Scroll down to the list of wheel (.whl) files and find the group that matches your OS/processor, which should be “Linux (ARM 32).” In that group, find the link that corresponds to your version of Python (3.7 for me). Right-click and select 
 Back in the terminal, enter the following:
 ```
 python -m pip install <paste in .whl link>
 ```
 
-Step 7: Run the webcam object detection script
+Step 9: Run the webcam object detection script
 ```
 python detect.py --modeldir '{path}/mobilenet'
 ```
